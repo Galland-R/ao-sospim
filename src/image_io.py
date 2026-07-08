@@ -26,7 +26,7 @@ def make_2d_image(image, mode="max", plane_index=0):
 
     Modele possible:
     - "none"    : l'image est déjà 2D
-    - "max"     : maximum intensity projection
+    - "mip"     : maximum intensity projection
     - "sum"     : somme des plans
     - "mean"    : moyenne des plans
     - "frame"   : un seul plan choist par plane_index
@@ -39,7 +39,7 @@ def make_2d_image(image, mode="max", plane_index=0):
     if image.ndim !=3:
         raise ValueError(f"Image avec dimension non gérée: {image.shape}")
     
-    if mode == "max":
+    if mode == "mip":
         return np.max(image, axis=0)
     
     if mode == "sum":

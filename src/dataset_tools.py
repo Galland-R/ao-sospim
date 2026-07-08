@@ -25,7 +25,7 @@ MODES_ZERNIKE = {
 
 # Listing des image tif dans un dossier (fonction RG)
 def list_tif_images(folder):
-    print(f"\ndata folder: {folder}")
+    # print(f"\ndata folder: {folder}")
     folder = Path(folder)
     return sorted(folder.glob("*.tif")) + sorted(folder.glob("*.tiff"))
 
