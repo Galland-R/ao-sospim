@@ -18,24 +18,24 @@ EXPERIMENTAL_FC_BY_CONDITION = {    # En mm-1
 ANALYSIS = {
     "analysis_version": "band_detection_v0.1",
 
-    "condition": "Coverslip",          # "Profondeur" ou "Coverslip"
-    "aberration_level": "No_aber",      # Niveau d'aberration ("High_aber", "High2", LOw_aber), "Medium_aber", No_aber)
+    "condition": "Profondeur",          # "Profondeur" ou "Coverslip"
+    "aberration_level": "High_aber",      # Niveau d'aberration ("High_aber", "High2", LOw_aber), "Medium_aber", No_aber)
     "no_exp": 1,                        # Numero réptition expérience (1 --> 5 ou 7)
 
     "pixel_size_um": 0.108,
     "lambda_um": 0.589,
 
-    "projection_mode": "frame",         # "max", "sum", "std", "mean", "plane"
+    "projection_mode": "frame",         # "mip", "sum", "std", "mean", "frame"
     "mode_zernike": "Zer4",             # Mode Zernike a analyser "Zer4", "Zer5", ..., "Zer10"
     "alpha": "+4alpha",
     "plane_index": 0,                   # Frame retenue pour analyse "frame"
 
     "fft_profile_smoothing": True,      # Applique smoothing au calcul moyenne rotationnelle (FFT)
     "fft_profile_sigma": 2,             # Facteur smoothing Gaussien pour calcul moyenne rotationnelle (FFT)
-    "fft_profile_normalize": False,      # Normalisation des FFT (FFT = FFT / max(FFT))
+    "fft_profile_normalize": True,      # Normalisation des FFT (FFT = FFT / max(FFT))
 
     "band_detection_sigma": 3,          # Facteur Smoothing Gaussien pour différence (FFT_ref - FFT_aberr)
-    "k": 1.0,                           # Seuil pour détection bandes: moyenne(diff_smooth) + k * écart-type(diff_smooth)
+    "k": 1,                           # Seuil pour détection bandes: moyenne(diff_smooth) + k * écart-type(diff_smooth)
     "ignore_first_n": 0,                # Ignore n premier poit pour détermination bande
 
     "use_fc": True,                     # fc utilisée pour limitée la recherch de bande ?
@@ -51,10 +51,12 @@ ANALYSIS = {
 PROJECT_DIR = Path(__file__).resolve().parent       
 
 # Chemin ou se trouve les images à analyser
-DATA_DIR = Path(                                    
-    #f"/Volumes/TEAM_M/everyone/Laetitia/AO/BANDPASS/CARAC/CARAC_AO_THESE/{ANALYSIS['condition']}/{ANALYSIS['aberration_level']}/{ANALYSIS['no_exp']}"
-    f"/Users/remi_galland/Library/CloudStorage/Dropbox-Sibarita_QIC/Rémi Galland/Work_RG/Publications/2026 - AO-soSPIM/Data/Figure01/Data/{ANALYSIS['condition']}/{ANALYSIS['aberration_level']}/{ANALYSIS['no_exp']}"
+DATA_ROOT_DIR = Path(
+    "/Volumes/TEAM_M/everyone/Laetitia/AO/BANDPASS/CARAC/CARAC_AO_THESE"
+    #"/Users/remi_galland/Library/CloudStorage/Dropbox-Sibarita_QIC/Rémi Galland/Work_RG/Publications/2026 - AO-soSPIM/Data/Figure01/Data"
 )
+
+DATA_DIR = DATA_ROOT_DIR / ANALYSIS["condition"] / ANALYSIS["aberration_level"] / str(ANALYSIS["no_exp"])    
 
 # Chemin pour sauvegarde des résultats avec arborescence (dossier "csv", "fft_profile")
 RESULTS_DIR = Path(                                 
