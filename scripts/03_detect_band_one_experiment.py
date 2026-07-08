@@ -39,13 +39,14 @@ images_path = ds.list_tif_images(cf.DATA_DIR)    # Listing images Tif dans dossi
 results = []
 band_limits = []
 
-for mode_name, mode_zernike in ds.MODES_ZERNIKE.items():        # Boucle sur ensemble mode Zernike Zer4 --> Zer10 indiqué dnas bibliothèque de mode (dataset_tools.py)
+for mode_name, mode_zernike in ds.MODES_ZERNIKE.items():        # Boucle sur ensemble mode Zernike Zer4 --> Zer10 indiqué dans bibliothèque de mode (dataset_tools.py)
     
     print(f"\nAnalyse: {mode_name} ({mode_zernike})")
     images_mode = ds.recuperer_images_par_mode(images_path, mode_zernike)    # Selectionne image correspondant au mode de Zerike a analyser
     images_mode_ref = ds.recuperer_images_par_mode(images_path, "Zer10")
 
     try:
+        # Utilise "refZer10" comme image de référence pour calcul de différence bande
         image_ref_path = ds.trouver_reference(images_mode_ref, "Zer10")
         image_aber_path = ds.trouver_image_aberration(images_mode, mode_zernike, alpha=alpha)
     except FileNotFoundError as e:
@@ -128,18 +129,13 @@ for mode_name, mode_zernike in ds.MODES_ZERNIKE.items():        # Boucle sur ens
     # Concaténation des résultats et conditions analyses
     results.append({
         "zernike_code": mode_zernike,
-        "alpha": alpha,
         "r_min_pix": r_min,
         "r_max_pix": r_max,
         "width_pix": width,
         "f_min_mm1": f_min_mm1,
         "f_max_mm1": f_max_mm1,
         "width_mm1": width_mm1,
-        "area": area,
-        "pixel_size_um": cf.ANALYSIS["pixel_size_um"],
-        "k": k,
-        "ignore_first_n": ignore_first_n,
-        "band_detection_sigma": band_detection_sigma
+        "area": area
     })
 
     # Figure FFT ref vs aberr
@@ -205,25 +201,18 @@ else:
 
 
 results.append({
-        "zernike_code": 0,
-        "alpha": alpha,
+        "zernike_code": "Intersection",
         "r_min_pix": common_min,
         "r_max_pix": common_max,
         "width_pix": (common_max - common_min),
         "f_min_mm1": common_min_mm1,
         "f_max_mm1": common_max_mm1,
         "width_mm1": (common_max_mm1 - common_min_mm1),
-        "area": area,
-        "pixel_size_um": cf.ANALYSIS["pixel_size_um"],
-        "k": k,
-        "ignore_first_n": ignore_first_n,
-        "band_detection_sigma": band_detection_sigma
+        "area": area
     })
 
 results.append({
-        "condition": cf.ANALYSIS["condition"],
-        "zernike_code": 1,
-        "alpha": alpha,
+        "zernike_code": "Union",
         "r_min_pix": global_min,
         "r_max_pix": global_max,
         "width_pix": (global_max - global_min),
@@ -231,13 +220,17 @@ results.append({
         "f_max_mm1": global_max_mm1,
         "width_mm1": (global_max_mm1 - global_min_mm1),
         "area": area,
+
+        "condition": cf.ANALYSIS["condition"],
+        "Projection_mode": cf.ANALYSIS["projection_mode"],
+        "NA": cf.NA_BY_CONDITION[cf.ANALYSIS["condition"]],
+        "alpha": cf.ANALYSIS["alpha"],
+        "fc_source": cf.ANALYSIS["fc_source"],
         "pixel_size_um": cf.ANALYSIS["pixel_size_um"],
         "k": k,
         "ignore_first_n": ignore_first_n,
         "band_detection_sigma": band_detection_sigma,
         "lambda_um": cf.ANALYSIS["lambda_um"],
-        "NA": cf.NA_BY_CONDITION[cf.ANALYSIS["condition"]],
-        "fc_source": cf.ANALYSIS["fc_source"],
         "base_fc_mm1": base_fc_mm1,
         "fc_fraction": cf.ANALYSIS["fc_fraction"],
         "used_fc_mm1": fc_mm1,
@@ -259,9 +252,9 @@ if fft_profiles_normalize:
     filename += "_norm"
 
 if fft_profile_smoothing:
-    filename += f"_fftSmoothing-{fft_profile_sigma}"
+    filename += f"_fftSmooth-{fft_profile_sigma}"
         
-filename += f"_band-sigma-{band_detection_sigma}.csv"
+filename += f"_bandsmooth-{band_detection_sigma}.csv"
 
 output_csv = cf.CSV_DIR / filename
 

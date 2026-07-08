@@ -25,8 +25,8 @@ ABERRATION_LEVEL = ["No_aber", "Low_aber", "Medium_aber", "High_aber", "High2"]
 EXPERIMENTS = range(1,8)
 
 # Boucle pour calcul des bandes
-projection_mode_calc = ["mip", "sum", "std", "frame"]
-k_calc = [1.0, 0.8, 0.5]
+PROJECTION_MODE = ["mip", "sum", "std", "frame"]
+K = [1.0, 0.8, 0.5]
 
 # Variables
 plane_index = cf.ANALYSIS["plane_index"]
@@ -382,8 +382,8 @@ def analyze_one_experiment(condition, aberration_level, no_exp):
 # Boucle global condition
 # -----------------------------------------
 
-for projection_mode in projection_mode_calc:
-    for k in k_calc:
+for projection_mode in PROJECTION_MODE:
+    for k in K:
 
         all_results = []
 
