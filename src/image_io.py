@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import tifffile
 
+from src import metrics as met
 
 def load_tif(path):
     """
@@ -53,6 +54,10 @@ def make_2d_image(image, mode="max", plane_index=0):
     
     if mode == "std":
         return np.std(image, axis=0)
+    
+    if mode == "mean_ROI":
+        return met.average_roi(image)
+
     
     raise ValueError(f"Mode inconnu : {mode}")
 
