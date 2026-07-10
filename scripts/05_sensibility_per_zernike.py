@@ -19,7 +19,7 @@ profondeur = "Coverslip"
 quantite = "No_aber"
 mode_zernike = "Zer4"
 jeux = (1, 2, 3, 4, 5)
-metrique = "mean_ROI"
+metrique = "MIP"
 
 # Activer/désactiver la visualisation intermédiaire des résultats
 PLOT_A = True

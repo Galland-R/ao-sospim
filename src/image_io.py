@@ -40,19 +40,19 @@ def make_2d_image(image, mode="max", plane_index=0):
     if image.ndim !=3:
         raise ValueError(f"Image avec dimension non gérée: {image.shape}")
     
-    if mode == "mip":
+    if mode == "MIP":
         return np.max(image, axis=0)
     
-    if mode == "sum":
+    if mode == "SUM":
         return np.sum(image, axis=0)
     
     if mode == "mean":
         return np.mean(image, axis=0)
     
-    if mode == "frame":
+    if mode == "Frame":
         return image[plane_index]
     
-    if mode == "std":
+    if mode == "STD":
         return np.std(image, axis=0)
     
     if mode == "mean_ROI":

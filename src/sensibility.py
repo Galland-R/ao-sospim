@@ -7,10 +7,12 @@ sys.path.append(str(root))
 from src import dataset_tools as dt
 from src import metrics as mt
 from src import image_io as iio
+import config
 
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from functools import partial
 
 
 
@@ -229,7 +231,14 @@ def obtenir_matrice_metrique(
     if metrique == "mean_ROI":
         calcul_metrique = mt.imax
     else:
-        calcul_metrique = mt.fft_band
+        NA, Lambda, r_min_px, r_max_px = config.obtenir_parametres_metrique(profondeur, metrique)
+        calcul_metrique = partial(
+            mt.fft_band,
+            NA=NA,
+            Lambda=Lambda,
+            r_min_px=r_min_px,
+            r_max_px=r_max_px,
+        )
 
     matrice = []
     x_reference = None

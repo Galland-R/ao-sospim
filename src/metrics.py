@@ -8,6 +8,7 @@ import tifffile as tiff
 import matplotlib.pyplot as plt
 
 import config 
+from config import ANALYSIS
 from src import fourier_tools as ft
 
 # Attention pour mean_ROI il faut avoir Napalm_tracer
@@ -126,84 +127,38 @@ def closest2power(x):
     return 1 if x == 0 else 2**(x - 1).bit_length()
 
 
-def get_freq_bandpass(image, radius_interne, radius_externe):
+def get_bandpass_mask(n, r_min_px, r_max_px):
+    """Construit le masque passe-bande (anneau) en pixels."""
+    crow, ccol = n // 2, n // 2
+    x, y = np.ogrid[:n, :n]
+    center_distance = np.sqrt((x - ccol) ** 2 + (y - crow) ** 2)
+    bandpass_mask = np.logical_and(center_distance > r_min_px, center_distance < r_max_px)
+    return bandpass_mask, center_distance
+
+
+def fft_band(image, NA, Lambda, r_min_px, r_max_px, pixel_size_um=ANALYSIS["pixel_size_um"]):
     """
-    Créer un masque de fréquence en pixel en anneau.
+    Calcule la métrique bandpass sur une image 2D déjà chargée.
+
+    Paramètres :
+        image : np.ndarray 2D (déjà chargée via load_tif + make_2d_image)
+        NA : ouverture numérique (ex: 1.49 pour Coverslip, 1.27 pour Profondeur)
+        Lambda : longueur d'onde en µm (ex: 0.46 pour Dapi, 0.589 sinon)
+        r_min_px, r_max_px : bornes de la bande passante en pixels
     """
-    rows, cols = image.shape
-    # Centre de la FFT
-    crow, ccol = rows // 2, cols // 2
+    n = image.shape[0]
 
-    # Distance de chaque pixel au centre
-    x, y = np.ogrid[:rows, :cols]
-    center_distance = np.sqrt((x - ccol)**2 + (y - crow)**2)
-    
-    # Anneau compris entre les deux rayons
-    bandpass_mask = np.logical_and(
-        center_distance >= radius_interne,
-        center_distance <= radius_externe
-    )
+    abs_fft = ft.getFFT(image)
 
-    return bandpass_mask
+    bandpass_mask, center_distance = get_bandpass_mask(n, r_min_px, r_max_px)
 
-def get_metric3(abs_fft, bandpass_mask, n, thisNA, thislambda):
+    # fréquence de coupure NA convertie en mm^-1, puis en pixels via freq_mm1_to_pix
+    freq_NA_mm1 = (2 * NA) / (Lambda * 1e-3)
+    radius_NA_px = config.freq_mm1_to_pix(freq_NA_mm1, image_size_px=n, pixel_size_um=pixel_size_um)
 
-    # Conversion du rayon de coupure de l'OTF en pixels
-    freq_cutoff_mm = ((2 * thisNA) / thislambda) * 1000
-    radius_cutoff = config.freq_mm1_to_pix(freq_cutoff_mm, image_size_px=n)
+    circmask1NA = (center_distance <= radius_NA_px).astype(float)
 
-    rows = cols = n
-
-    # Centre de la FFT
-    crow, ccol = rows // 2, cols // 2
-
-    # Distance au centre
-    x, y = np.ogrid[:rows, :cols]
-    distance = np.sqrt((x - ccol)**2 + (y - crow)**2)
-
-    # Masque circulaire correspondant à la fréquence maximale de l'OTF
-    circmask1NA = distance <= radius_cutoff
-
-    # Énergie dans le bandpass
     Mnum = np.sum(abs_fft * bandpass_mask)
-
-    # Énergie totale dans l'OTF
     Mden = np.sum(abs_fft * circmask1NA)
 
-    # Métrique normalisée
     return Mnum / Mden
-
-def fft_band(img, jeu, metrique):
-
-    # Récupération des bornes du bandpass (mm^-1)
-    freq_min, freq_max = bp[jeu][metrique]
-
-    # Conversion en pixels
-    radius_interne = freq_mm1_to_pix(freq_min)
-    radius_externe = freq_mm1_to_pix(freq_max)
-
-    # Lecture de l'image et calcul de la FFT
-
-    height, width = img.shape[:2]
-
-    # Compute the closest power of two for the maximum dimension
-    n = closest2power(max(width, height))
-    abs_fft = ft.getFFT(img)
-
-    # Création du masque bandpass
-    bandpass_mask = get_freq_bandpass(
-        img,
-        radius_interne=radius_interne,
-        radius_externe=radius_externe
-    )
-
-    # Calcul de la métrique
-    M = get_metric3(
-        abs_fft,
-        bandpass_mask,
-        n,
-        thisNA=1.49,
-        thislambda=0.46
-    )
-
-    return M

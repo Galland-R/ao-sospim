@@ -47,6 +47,24 @@ ANALYSIS = {
     "fft_profile_plot_show": True,      # Affiche figure de comparaison
 }
 
+
+BANDPASS_RADII_PX = {
+    "Coverslip": {
+        "MIP": (22, 67), "SUM": (20, 61), "Frame": (16, 52), "Dapi": (11, 42),
+        "Gallery": (16, 52), "STD": (23, 71), "MIP25": (21, 64), "avg_psf": (31, 73),
+    },
+    "Profondeur": {
+        "MIP": (16, 66), "SUM": (13, 57), "Frame": (7, 51), "Dapi": (6, 43),
+        "Gallery": (11, 61), "STD": (16, 70),
+        "mip_10frames": (16, 66), "mip_30frames": (16, 66),
+        "mip_50frames": (16, 66), "mip_100frames": (16, 66),
+        "std_10frames": (16, 70), "std_30frames": (16, 70),
+        "std_50frames": (16, 70), "std_100frames": (16, 70),
+    },
+}
+
+
+
 # =========================
 # Chemins principaux
 # =========================
@@ -175,3 +193,13 @@ def get_analysis_fc_radius_px(image_size_px=256, fc_fraction=None):
 
     return freq_mm1_to_pix(fc_mm1, image_size_px=image_size_px, pixel_size_um=ANALYSIS["pixel_size_um"])
 
+def obtenir_parametres_metrique(profondeur, metrique):
+    """
+    Détermine NA, Lambda, r_min_px, r_max_px selon la profondeur et le type d'image.
+    """
+    NA = NA_BY_CONDITION[profondeur]
+    Lambda = 0.465 if metrique == "Dapi" else 0.589
+
+    r_min_px, r_max_px = BANDPASS_RADII_PX[profondeur][metrique]
+
+    return NA, Lambda, r_min_px, r_max_px
