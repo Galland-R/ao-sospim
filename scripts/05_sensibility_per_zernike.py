@@ -15,7 +15,7 @@ from src import dataset_tools as dt
 
 # Fichiers à considérer 
 base_dir = r"M:\everyone\Laetitia\AO\BANDPASS\CARAC\CARAC_AO_THESE"
-profondeur = "Profondeur"
+profondeur = "Coverslip"
 quantite = "No_aber"
 mode_zernike = "Zer4"
 jeux = (1, 2, 3, 4, 5, 6, 7)
@@ -27,7 +27,8 @@ PLOT_N = True
 
 # Mode de calcul du bruit N
 METHODE = "std" #"std" (moyenne ± écart-type) ou "minmax" (vrai min/max observé)
-MODE = "direct" #"direct" (aire sur les points bruts) ou "fit" (aire après fit quadratique)
+MODE = "fit" #"direct" (aire sur les points bruts) ou "fit" (aire après fit quadratique)
+ALPHAMAX = 0.26
 
 # -----------------------------------------
 # Main sensibilité sur 1 mode de Zernike 
@@ -36,7 +37,7 @@ MODE = "direct" #"direct" (aire sur les points bruts) ou "fit" (aire après fit 
 # 1. Aller chercher les images + calculer la métrique + construire la matrice
 x, matrice, jeux_utils = sb.obtenir_matrice_metrique(base_dir, profondeur, quantite, mode_zernike, metrique, jeux)
 x = np.array(x)
-
+x = x * ALPHAMAX / 4
 # 2. Normaliser par ligne (chaque jeu par son propre max)
 matrice_norm = sb.normaliser_par_ligne(matrice)
 

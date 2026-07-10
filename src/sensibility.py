@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from functools import partial
+import csv
 
 
 # Sensibilité 
@@ -125,45 +126,41 @@ def coefficient_N(courbes, x_alpha, methode="std", mode="fit", plot=True):
     return N
 
 
-# Exportation Excel
+# Exportation CSV
 
-from openpyxl import Workbook
 
-def create_analysis_excel(filename):
+HEADERS = [
+    "Métrique",           # A
+    "Depth",              # B
+    "Qt aberrations",     # C
+    "Jeu",                # D
+    "Zernike",             # E
+    "abs(a_moy)",         # F
+    "N",                  # G
+    "S",                  # H = abs(a_moy) / N
+    "x_max_moyen",        # I
+    "Conditions méthode", # J
+    "Conditions mode",    # K
+]
+
+
+def create_analysis_csv(filename):
     """
-    Crée un fichier Excel avec les en-têtes de l'analyse.
+    Crée un fichier CSV avec les en-têtes de l'analyse.
+    Écrase le fichier s'il existe déjà.
     """
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Analyse"
-
-    headers = [
-        "Métrique",          # A
-        "Depth",             # B
-        "Qt aberrations",    # C
-        "Jeu",               # D
-        "Zernike",           # E
-        "abs(a_moy)",        # F
-        "N",                 # G
-        "Conditions méthode",# H
-        "Conditions mode"    # I
-    ]
-
-    for col, header in enumerate(headers, start=1):
-        ws.cell(row=1, column=col, value=header)
-
-    wb.save(filename)
+    with open(filename, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(HEADERS)
 
 
 def append_analysis_result(filename, values):
-    wb = load_workbook(filename)
-    ws = wb["Analyse"]
-
-    ws.append(values)
-
-    wb.save(filename)
-
+    """
+    Ajoute une ligne de résultats au CSV.
+    """
+    with open(filename, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(values)
 # Récupérer les fichiers 
 
 
