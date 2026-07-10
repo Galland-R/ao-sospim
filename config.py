@@ -18,8 +18,8 @@ EXPERIMENTAL_FC_BY_CONDITION = {    # En mm-1
 ANALYSIS = {
     "analysis_version": "band_detection_v0.1",
 
-    "condition": "Profondeur",          # "Profondeur" ou "Coverslip"
-    "aberration_level": "High_aber",      # Niveau d'aberration ("High_aber", "High2", LOw_aber), "Medium_aber", No_aber)
+    "condition": "Coverslip",          # "Profondeur" ou "Coverslip"
+    "aberration_level": "No_aber",      # Niveau d'aberration ("High_aber", "High2", Low_aber, "Medium_aber", No_aber)
     "no_exp": 1,                        # Numero réptition expérience (1 --> 5 ou 7)
 
     "pixel_size_um": 0.108,
@@ -41,6 +41,10 @@ ANALYSIS = {
     "use_fc": True,                     # fc utilisée pour limitée la recherch de bande ?
     "fc_source": "experimental",        # "theoretical" -> 2*NA/lambda; "experimental" -> valeur mesurée, par exemple 3125 (profondeur) / 3846 (coverslip)
     "fc_fraction": 1.0,                 # 1.0: Toute la fréquence; 0.5: fc/2 (métrique REALM)
+
+    "fft_profile_save": True,           # Sauvegarde profile fft ref & Aber + diff en csv
+    "fft_profile_plot_save": True,      # Sauvergae les figures de comparaison en png
+    "fft_profile_plot_show": True,      # Affiche figure de comparaison
 }
 
 # =========================

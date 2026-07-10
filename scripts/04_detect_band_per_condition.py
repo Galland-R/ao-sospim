@@ -1,5 +1,7 @@
 import sys
 from pathlib import Path
+import matplotlib.pyplot as plt
+import numpy as np
 
 root = Path(__file__).resolve().parent.parent
 sys.path.append(str(root))
@@ -19,14 +21,14 @@ import src.io_utils as io
 condition = cf.ANALYSIS["condition"]
 
 # on boucle sur tous les niveaux d'aberrations induits (fait en sorte d'ignorer dossiers absents)
-ABERRATION_LEVEL = ["No_aber", "Low_aber", "Medium_aber", "High_aber", "High2"]
+ABERRATION_LEVEL = ["No_aber"] # "No_aber", "Low_aber", "Medium_aber", "High_aber", "High2"]
 
 # On test différentes acqusitions de 1 à 7 (on ignore expérience absente)
 EXPERIMENTS = range(1,8)
 
 # Boucle pour calcul des bandes
-PROJECTION_MODE = ["mip", "sum", "std", "frame"]
-K = [1.0, 0.8, 0.5]
+PROJECTION_MODE = ["mip"] #, "sum", "std", "frame"]
+K = [1.0, 0.8, 0.5] #[1.0, 0.8, 0.5]
 
 # Variables
 plane_index = cf.ANALYSIS["plane_index"]
@@ -40,6 +42,11 @@ band_detection_sigma = cf.ANALYSIS["band_detection_sigma"]
 ignore_first_n = cf.ANALYSIS["ignore_first_n"]
 
 reference_zernike = "Zer10"   # choix reproduisant le comportement du code étudiant
+
+# Paramètres de sauvegarde et de figures
+fft_profile_save = cf.ANALYSIS["fft_profile_save"]
+fft_profile_plot_save = cf.ANALYSIS["fft_profile_plot_save"]
+fft_profile_plot_show = cf.ANALYSIS["fft_profile_plot_show"]
 
 
 # -----------------------------------------
@@ -186,6 +193,94 @@ def make_band_row(
         "used_fc_radius_px": used_fc_radius_px,
     }
 
+def build_profile_base_name(
+    condition,
+    aberration_level,
+    no_exp,
+    projection_mode,
+    mode_zernike,
+    alpha,
+    k,
+):
+    """
+    Construit un nom de base pour les profils FFT et les figures.
+    """
+
+    name = (
+        f"Profile_{condition}"
+        f"_{aberration_level}"
+        f"_exp-{no_exp}"
+        f"_{projection_mode}"
+        f"_{mode_zernike}"
+        f"_Ref-{reference_zernike}-vs-{alpha}"
+        f"_fc-{cf.ANALYSIS['fc_source']}"
+        f"_frac-{cf.ANALYSIS['fc_fraction']}"
+        f"_k-{k}"
+    )
+
+    if fft_profiles_normalize:
+        name += "_fft-norm"
+
+    if fft_profile_smoothing:
+        name += f"_fft-smooth-{fft_profile_sigma}"
+
+    name += f"_band-smooth-{band_detection_sigma}"
+
+    return name
+
+def plot_profile_comparison(
+    bins,
+    ref_profile,
+    aberr_profile,
+    diff_norm,
+    r_min,
+    r_max,
+    title,
+    output_path=None,
+    show=False,
+):
+    """
+    Trace sur un même graphe :
+    - profil FFT référence
+    - profil FFT aberré
+    - différence lissée sur un deuxième axe
+    - bande détectée
+    """
+
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+
+    ax1.plot(bins, ref_profile, label="Référence")
+    ax1.plot(bins, aberr_profile, label="Aberrée")
+    ax1.set_xlabel("Rayon FFT (px)")
+    ax1.set_ylabel("Profil FFT")
+    ax1.grid(True)
+
+    ax2 = ax1.twinx()
+    ax2.plot(bins, diff_norm, linestyle="--", label="|ΔFFT| lissé")
+    ax2.set_ylabel("|ΔFFT| lissé")
+
+    if r_min is not None and r_max is not None:
+        ax1.axvspan(r_min, r_max, alpha=0.2, label="Bande détectée")
+
+    ax1.set_title(title)
+
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="best")
+
+    fig.tight_layout()
+
+    if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=150)
+        # print(f"Figure sauvegardée : {output_path}")
+
+    if show:
+        plt.show(block=False)
+        plt.pause(1)
+
+    plt.close(fig)
 
 # -----------------------------------------
 # Fontion calcul pour une expérience
@@ -270,7 +365,7 @@ def analyze_one_experiment(condition, aberration_level, no_exp):
         )
 
         # Compare profile aberré vs référence
-        bins, ref_norm, aber_norm, diff, diff_smooth = bd.compare_rotational_profiles(
+        bins, ref_profile_comp, aber_profile_comp, diff, diff_smooth = bd.compare_rotational_profiles(
             bins_ref, profile_ref,
             bins_aber, profile_aber,
             smoothing_sigma=band_detection_sigma,
@@ -287,6 +382,53 @@ def analyze_one_experiment(condition, aberration_level, no_exp):
         )
 
         area = bd.compute_integral_in_band(r_min, r_max, bins, diff_smooth)
+
+        # Sauvegarde optionelle des profils fft et de la différence
+
+        profile_base_name = build_profile_base_name(
+            condition=condition,
+            aberration_level=aberration_level,
+            no_exp=no_exp,
+            projection_mode=projection_mode,
+            mode_zernike=mode_zernike,
+            alpha=alpha,
+            k=k,
+        )
+
+        if fft_profile_save:
+
+            profile_csv = cf.FFT_DIR / f"{profile_base_name}.csv"
+
+            io.save_fft_profile_comparison_csv(
+                bins=bins,
+                ref_profile=ref_profile_comp,
+                aberr_profile=aber_profile_comp,
+                diff_smooth=diff_smooth,
+                diff_norm=diff_smooth/np.max(diff_smooth),
+                output_path=profile_csv,
+                image_size_pix=image_size_pix,
+                pixel_size_um=cf.ANALYSIS["pixel_size_um"],
+                r_min=r_min,
+                r_max=r_max,
+            )
+
+        if fft_profile_plot_save or fft_profile_plot_show:
+            profile_png = cf.IMAGE_DIR / f"{profile_base_name}.png"
+
+            plot_profile_comparison(
+                bins=bins,
+                ref_profile=ref_profile_comp,
+                aberr_profile=aber_profile_comp,
+                diff_norm=diff_smooth/np.max(diff_smooth),
+                r_min=r_min,
+                r_max=r_max,
+                title=(
+                    f"{condition} | {aberration_level} | exp {no_exp} | "
+                    f"{projection_mode} | {mode_zernike} | k={k}"
+                ),
+                output_path=profile_png if fft_profile_plot_save else None,
+                show=fft_profile_plot_show,
+            )
 
         if r_min is not None:
             band_limits.append((r_min, r_max))
