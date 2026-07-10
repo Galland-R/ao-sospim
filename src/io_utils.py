@@ -1,5 +1,6 @@
 
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from pathlib import Path
 
@@ -88,3 +89,58 @@ def save_band_detection_csv(results, output_path):
     df.to_csv(output_path, index=False)
 
     print(f"Résultats bandes sauvegardés : {output_path}")
+
+
+from pathlib import Path
+import numpy as np
+import pandas as pd
+
+
+def save_fft_profile_comparison_csv(
+    bins,
+    ref_profile,
+    aberr_profile,
+    diff_smooth,
+    diff_norm,
+    output_path,
+    image_size_pix,
+    pixel_size_um,
+    r_min=None,
+    r_max=None,
+):
+    """
+    Sauvegarde les profils FFT comparés dans un CSV compatible Prism.
+
+    Colonnes :
+    - radius_px
+    - frequency_mm1
+    - reference_profile
+    - aberrated_profile
+    - difference
+    - difference_smooth
+    - band_mask : 1 dans la bande détectée, 0 ailleurs
+    """
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    frequency_mm1 = bins / (image_size_pix * pixel_size_um * 1e-3)
+
+    band_mask = np.zeros_like(bins, dtype=int)
+
+    if r_min is not None and r_max is not None:
+        band_mask[(bins >= r_min) & (bins <= r_max)] = 1
+
+    df = pd.DataFrame({
+        "radius_px": bins,
+        "frequency_mm1": frequency_mm1,
+        "reference_profile": ref_profile,
+        "aberrated_profile": aberr_profile,
+        "difference_smooth": diff_smooth,
+        "difference_norm": diff_norm,
+        "band_mask": band_mask,
+    })
+
+    df.to_csv(output_path, index=False)
+
+    # print(f"Profil FFT sauvegardé : {output_path}")
