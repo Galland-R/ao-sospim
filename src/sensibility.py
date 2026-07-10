@@ -15,23 +15,24 @@ from pathlib import Path
 from functools import partial
 
 
-
-
 # Sensibilité 
 
 
 def coefficient_a(valeurs, x_alpha, plot=True):
     """
-    Les valeurs sont déjà normalisé 
+    Les valeurs sont déjà normalisées.
     Fait un fit quadratique y = a*x^2 + b*x + c sur les valeurs (déjà normalisées)
-    et retourne uniquement le coefficient a.
+    et retourne le coefficient a ainsi que la position x du maximum de la parabole.
     """
     y = np.array(valeurs)
     x = x_alpha
 
     a, b, c = np.polyfit(x, y, 2)
 
-     # Calcul du R²
+    # Position du sommet de la parabole (maximum si a < 0)
+    x_max = -b / (2 * a)
+
+    # Calcul du R²
     y_pred = a * x**2 + b * x + c
     ss_res = np.sum((y - y_pred) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
@@ -40,19 +41,25 @@ def coefficient_a(valeurs, x_alpha, plot=True):
     if plot:
         x_fit = np.linspace(x.min(), x.max(), 200)
         y_fit = a * x_fit**2 + b * x_fit + c
+        y_max = a * x_max**2 + b * x_max + c
 
         plt.figure(figsize=(7, 5))
         plt.scatter(x, y, color='tab:blue', label='Données normalisées', zorder=3)
         plt.plot(x_fit, y_fit, color='tab:red',
                  label=f'Fit quadratique (R² = {r2:.4f})')
+        plt.scatter([x_max], [y_max], color='tab:green', zorder=4, s=60, label='Maximum')
+        plt.annotate(f'x = {x_max:.4f}',
+                     xy=(x_max, y_max),
+                     xytext=(10, 10), textcoords='offset points',
+                     color='tab:green', fontsize=9)
         plt.xlabel('x')
         plt.ylabel('y (normalisé)')
         plt.title('Fit quadratique y = a·x² + b·x + c')
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.show()
-    return a
 
+    return a, x_max
 
 
 
@@ -225,6 +232,7 @@ def obtenir_matrice_metrique(
 ):
     """
     Construit la matrice des valeurs de métrique pour un mode Zernike donné.
+    Les jeux dont le dossier est introuvable sont ignorés (et signalés).
     """
 
     # Choix de la fonction de calcul
@@ -242,16 +250,22 @@ def obtenir_matrice_metrique(
 
     matrice = []
     x_reference = None
+    jeux_utilises = []
+    jeux_manquants = []
 
     for jeu in jeux:
-        x_jeu, images_mode = obtenir_images_mode(
-            base_dir,
-            profondeur,
-            quantite,
-            jeu,
-            mode_zernike,
-            metrique,
-        )
+        try:
+            x_jeu, images_mode = obtenir_images_mode(
+                base_dir,
+                profondeur,
+                quantite,
+                jeu,
+                mode_zernike,
+                metrique,
+            )
+        except FileNotFoundError:
+            jeux_manquants.append(jeu)
+            continue
 
         y_jeu = [calcul_metrique(p) for p in images_mode]
 
@@ -259,8 +273,13 @@ def obtenir_matrice_metrique(
             x_reference = x_jeu
 
         matrice.append(y_jeu)
+        jeux_utilises.append(jeu)
 
-    return x_reference, matrice
+    if jeux_manquants:
+        print(f" Jeux ignorés (dossier {metrique} introuvable) : {jeux_manquants}", flush=True)
+
+    return x_reference, matrice, jeux_utilises
+
 
 def normaliser_par_ligne(matrice):
     """

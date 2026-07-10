@@ -15,10 +15,10 @@ from src import dataset_tools as dt
 
 # Fichiers à considérer 
 base_dir = r"M:\everyone\Laetitia\AO\BANDPASS\CARAC\CARAC_AO_THESE"
-profondeur = "Coverslip"
+profondeur = "Profondeur"
 quantite = "No_aber"
 mode_zernike = "Zer4"
-jeux = (1, 2, 3, 4, 5)
+jeux = (1, 2, 3, 4, 5, 6, 7)
 metrique = "MIP"
 
 # Activer/désactiver la visualisation intermédiaire des résultats
@@ -34,20 +34,22 @@ MODE = "direct" #"direct" (aire sur les points bruts) ou "fit" (aire après fit 
 # -----------------------------------------
 
 # 1. Aller chercher les images + calculer la métrique + construire la matrice
-x, matrice = sb.obtenir_matrice_metrique(base_dir, profondeur, quantite, mode_zernike, metrique, jeux)
+x, matrice, jeux_utils = sb.obtenir_matrice_metrique(base_dir, profondeur, quantite, mode_zernike, metrique, jeux)
 x = np.array(x)
 
 # 2. Normaliser par ligne (chaque jeu par son propre max)
 matrice_norm = sb.normaliser_par_ligne(matrice)
 
 # 3. Calculer a pour chaque jeu, puis moyenner
-liste_a = [sb.coefficient_a(jeu_valeurs, x, PLOT_A) for jeu_valeurs in matrice_norm]
+liste_a, liste_x_max = zip(*(sb.coefficient_a(jeu_valeurs, x, PLOT_A) for jeu_valeurs in matrice_norm))
+
 a_moyen = float(np.mean(liste_a))
+x_max_moyen = float(np.mean(liste_x_max))
 
 # 4. Calculer N (sur les données normalisées, transposées : une ligne par x, une valeur par jeu)
 courbes_norm = list(zip(*matrice_norm))
 N = sb.coefficient_N(courbes_norm, x, METHODE, MODE, PLOT_N)
 
-print(f"a par jeu : {liste_a}")
-print(f"a moyen   : {a_moyen}")
+print(f"b/2a moyen : {x_max_moyen}")
+print(f"a moyen   : {a_moyen}  (sur {len(jeux_utils)} jeux)")
 print(f"N         : {N}")

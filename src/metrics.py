@@ -119,8 +119,6 @@ def imax(image: np.ndarray) -> float:
 # Fonctions pour fft_band
 # ----------------------------------------- 
 
-bp = {"Coverslip":{"MIP" :[22,67],"SUM" :[20,61],"Frame":[16,52],"Dapi" :[11,42],"Gallery" :[16,52],"STD":[23,71],"MIP25":[21,64],"avg_psf" :[31,73]},"Profondeur" :{"MIP" :[16,66],"SUM" :[13,57],"Frame":[7,51],"Dapi" :[6,43],"Gallery" :[11,61],"STD":[16,70],"mip_10frames":[16,66],"mip_30frames":[16,66],"mip_50frames":[16,66],"mip_100frames":[16,66],"std_10frames":[16,70],"std_30frames":[16,70],"std_50frames":[16,70],"std_100frames":[16,70]}} #px
-
 
 def closest2power(x): 
     x= int(x) 
