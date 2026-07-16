@@ -18,14 +18,14 @@ EXPERIMENTAL_FC_BY_CONDITION = {    # En mm-1
 ANALYSIS = {
     "analysis_version": "band_detection_v0.1",
 
-    "condition": "Coverslip",          # "Profondeur" ou "Coverslip"
+    "condition": "Profondeur",          # "Profondeur" ou "Coverslip"
     "aberration_level": "No_aber",      # Niveau d'aberration ("High_aber", "High2", Low_aber, "Medium_aber", No_aber)
     "no_exp": 1,                        # Numero réptition expérience (1 --> 5 ou 7)
 
     "pixel_size_um": 0.108,
     "lambda_um": 0.589,
 
-    "projection_mode": "frame",         # "mip", "sum", "std", "mean", "frame"
+    "projection_mode": "MIP",           # "MIP", "SUM", "STD", "Mean", "Frame"
     "mode_zernike": "Zer4",             # Mode Zernike a analyser "Zer4", "Zer5", ..., "Zer10"
     "alpha": "+4alpha",
     "plane_index": 0,                   # Frame retenue pour analyse "frame"
@@ -42,9 +42,9 @@ ANALYSIS = {
     "fc_source": "experimental",        # "theoretical" -> 2*NA/lambda; "experimental" -> valeur mesurée, par exemple 3125 (profondeur) / 3846 (coverslip)
     "fc_fraction": 1.0,                 # 1.0: Toute la fréquence; 0.5: fc/2 (métrique REALM)
 
-    "fft_profile_save": True,           # Sauvegarde profile fft ref & Aber + diff en csv
-    "fft_profile_plot_save": True,      # Sauvergae les figures de comparaison en png
-    "fft_profile_plot_show": True,      # Affiche figure de comparaison
+    "fft_profile_save": False,           # Sauvegarde profile fft ref & Aber + diff en csv
+    "fft_profile_plot_save": False,      # Sauvergae les figures de comparaison en png
+    "fft_profile_plot_show": False,      # Affiche figure de comparaison
 }
 
 

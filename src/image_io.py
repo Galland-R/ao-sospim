@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 import tifffile
 
-from src import metrics as met
+# from src import metrics as met
 
 def load_tif(path):
     """
@@ -46,7 +46,7 @@ def make_2d_image(image, mode="max", plane_index=0):
     if mode == "SUM":
         return np.sum(image, axis=0)
     
-    if mode == "mean":
+    if mode == "Mean":
         return np.mean(image, axis=0)
     
     if mode == "Frame":

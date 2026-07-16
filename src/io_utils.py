@@ -144,3 +144,23 @@ def save_fft_profile_comparison_csv(
     df.to_csv(output_path, index=False)
 
     # print(f"Profil FFT sauvegardé : {output_path}")
+
+
+def save_fft_profiles_all_modes_csv(profile_table, output_path):
+    """
+    Sauvegarde dans un seul CSV les profils FFT ref/aberrée/différence
+    pour tous les modes de Zernike d'une expérience.
+
+    profile_table : dict
+        Dictionnaire dont chaque clé devient une colonne du CSV.
+    output_path : str ou Path
+        Chemin du fichier CSV de sortie.
+    """
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    df = pd.DataFrame(profile_table)
+    df.to_csv(output_path, index=False)
+
+    print(f"Profils FFT tous modes sauvegardés : {output_path}")    

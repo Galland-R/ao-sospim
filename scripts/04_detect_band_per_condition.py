@@ -21,14 +21,14 @@ import src.io_utils as io
 condition = cf.ANALYSIS["condition"]
 
 # on boucle sur tous les niveaux d'aberrations induits (fait en sorte d'ignorer dossiers absents)
-ABERRATION_LEVEL = ["No_aber"] # "No_aber", "Low_aber", "Medium_aber", "High_aber", "High2"]
+ABERRATION_LEVEL = ["No_aber", "Low_aber", "Medium_aber", "High_aber", "High2"]
 
 # On test différentes acqusitions de 1 à 7 (on ignore expérience absente)
 EXPERIMENTS = range(1,8)
 
 # Boucle pour calcul des bandes
-PROJECTION_MODE = ["mip"] #, "sum", "std", "frame"]
-K = [1.0, 0.8, 0.5] #[1.0, 0.8, 0.5]
+PROJECTION_MODE = ["MIP", "SUM", "STD", "Frame"]
+K = [1.0, 0.5] #[1.0, 0.8, 0.5]
 
 # Variables
 plane_index = cf.ANALYSIS["plane_index"]
@@ -41,7 +41,7 @@ fft_profiles_normalize = cf.ANALYSIS["fft_profile_normalize"]
 band_detection_sigma = cf.ANALYSIS["band_detection_sigma"]
 ignore_first_n = cf.ANALYSIS["ignore_first_n"]
 
-reference_zernike = "Zer10"   # choix reproduisant le comportement du code étudiant
+reference_zernike = "Mean"   # "Zer10" = choix reproduisant le comportement du code étudiant; None = référence correspondant au mode de Zernike calculé; "Mean" = référence est la moyenne des référence de chaque mode
 
 # Paramètres de sauvegarde et de figures
 fft_profile_save = cf.ANALYSIS["fft_profile_save"]
@@ -74,30 +74,6 @@ def preprocessing_mode_for_stack(projection_mode):
         return "plane"
 
     return mode
-
-def compute_fc_values(condition, image_size_pix):
-    """
-    Calcule la fréquence de coupure et son rayon FFT associé.
-    """
-
-    if not cf.ANALYSIS["use_fc"]:
-        return None, None, None
-
-    base_fc_mm1 = cf.get_base_fc_mm1(
-        condition=condition,
-        lambda_um=cf.ANALYSIS["lambda_um"],
-        fc_source=cf.ANALYSIS["fc_source"],
-    )
-
-    used_fc_mm1 = cf.ANALYSIS["fc_fraction"] * base_fc_mm1
-
-    used_fc_radius_px = cf.freq_mm1_to_pix(
-        used_fc_mm1,
-        image_size_px=image_size_pix,
-        pixel_size_um=cf.ANALYSIS["pixel_size_um"],
-    )
-
-    return base_fc_mm1, used_fc_mm1, used_fc_radius_px
 
 def compute_fc_values(condition, image_size_pix):
     """
@@ -213,8 +189,6 @@ def build_profile_base_name(
         f"_{projection_mode}"
         f"_{mode_zernike}"
         f"_Ref-{reference_zernike}-vs-{alpha}"
-        f"_fc-{cf.ANALYSIS['fc_source']}"
-        f"_frac-{cf.ANALYSIS['fc_fraction']}"
         f"_k-{k}"
     )
 
@@ -222,9 +196,9 @@ def build_profile_base_name(
         name += "_fft-norm"
 
     if fft_profile_smoothing:
-        name += f"_fft-smooth-{fft_profile_sigma}"
+        name += f"-s-{fft_profile_sigma}"
 
-    name += f"_band-smooth-{band_detection_sigma}"
+    name += f"_band-s-{band_detection_sigma}"
 
     return name
 
@@ -282,6 +256,112 @@ def plot_profile_comparison(
 
     plt.close(fig)
 
+def add_zernike_profile_to_table(
+    profile_table,
+    bins,
+    image_size_pix,
+    mode_zernike,
+    ref_profile,
+    ref_profile_std,
+    aberr_profile,
+    diff,
+    diff_smooth,
+    r_min,
+    r_max,
+):
+    """
+    Ajoute les profils d'un mode de Zernike dans un tableau global.
+
+    Le tableau final aura une ligne par rayon FFT et plusieurs colonnes :
+    ref_Zer4, aberr_Zer4, diff_Zer4, diffSmooth_Zer4, etc.
+    """
+
+    if profile_table is None:
+        profile_table = {
+            "radius_px": bins,
+            "frequency_mm1": cf.pix_to_freq_mm1(
+                bins,
+                image_size_px=image_size_pix,
+                pixel_size_um=cf.ANALYSIS["pixel_size_um"],
+            ),
+        }
+
+    # Masque de bande détectée : 1 dans la bande, 0 ailleurs.
+    band_mask = np.zeros_like(bins, dtype=int)
+
+    if r_min is not None and r_max is not None:
+        band_mask[(bins >= r_min) & (bins <= r_max)] = 1
+
+    # Différence normalisée
+    max_diff = np.max(diff_smooth)
+
+    if max_diff != 0:
+        diff_norm = diff_smooth / max_diff
+    else:
+        diff_norm = diff_smooth
+
+    # Conversion des bornes en fréquences.
+    f_min_mm1 = cf.pix_to_freq_mm1(r_min, image_size_pix) if r_min is not None else np.nan
+    f_max_mm1 = cf.pix_to_freq_mm1(r_max, image_size_pix) if r_max is not None else np.nan
+
+    # Colonnes propres à ce mode de Zernike.
+    if reference_zernike == "Zer10" :
+        profile_table[f"ref_{reference_zernike}"] = ref_profile
+    if reference_zernike == "Mean" :
+        profile_table[f"ref_{reference_zernike}"] = ref_profile
+        profile_table[f"ref_{reference_zernike}-std"] = ref_profile_std
+    if reference_zernike is None : 
+        profile_table[f"ref_{mode_zernike}"] = ref_profile
+    
+    profile_table[f"aberr_{mode_zernike}"] = aberr_profile
+    # profile_table[f"diff_{mode_zernike}"] = diff
+    # profile_table[f"diffSmooth_{mode_zernike}"] = diff_smooth
+    profile_table[f"diffNorm_{mode_zernike}"] = diff_norm
+    profile_table[f"bandMask_{mode_zernike}"] = band_mask
+
+    # Colonnes constantes répétées sur toutes les lignes.
+    # Ce n'est pas indispensable pour tracer, mais très pratique pour retrouver les bandes.
+    #profile_table[f"rMinPx_{mode_zernike}"] = np.full_like(bins, r_min if r_min is not None else np.nan, dtype=float)
+    #profile_table[f"rMaxPx_{mode_zernike}"] = np.full_like(bins, r_max if r_max is not None else np.nan, dtype=float)
+    #profile_table[f"fMinMM1_{mode_zernike}"] = np.full_like(bins, f_min_mm1, dtype=float)
+    #profile_table[f"fMaxMM1_{mode_zernike}"] = np.full_like(bins, f_max_mm1, dtype=float)
+
+    return profile_table
+
+def build_all_modes_profile_filename(
+    condition,
+    aberration_level,
+    no_exp,
+    projection_mode,
+    alpha,
+    k,
+):
+    """
+    Construit le nom du CSV contenant tous les profils FFT
+    pour une expérience donnée.
+    """
+
+    filename = (
+        f"fft_{condition}"
+        f"_{aberration_level}"
+        f"_exp-{no_exp}"
+        f"_{projection_mode}"
+        f"_{reference_zernike}-vs-{alpha}"
+        # f"_fc-{cf.ANALYSIS['fc_source']}"
+        # f"_frac-{cf.ANALYSIS['fc_fraction']}"
+        f"_k-{k}"
+    )
+
+    if fft_profiles_normalize:
+        filename += "_fft-norm"
+
+    if fft_profile_smoothing:
+        filename += f"-s-{fft_profile_sigma}"
+
+    filename += f"_band-s-{band_detection_sigma}.csv"
+
+    return filename
+
 # -----------------------------------------
 # Fontion calcul pour une expérience
 # -----------------------------------------
@@ -310,40 +390,109 @@ def analyze_one_experiment(condition, aberration_level, no_exp):
         return []
     
     # Obtention image de référence (reference_zernike = "Zer10" comme dans code étudiants)
-    images_mode_ref = ds.recuperer_images_par_mode(image_paths, reference_zernike)
-    try:
-        image_ref_path = ds.trouver_reference(images_mode_ref, reference_zernike)
-    except FileNotFoundError as e:
-        print(f"Exprience ignorée: {e}")
-        return []
-    
-    ref_stack = im.load_tif(image_ref_path)
-    ref_image = im.make_2d_image(ref_stack, mode=projection_mode, plane_index=plane_index)
+    if reference_zernike == "Zer10":
+        
+        images_mode_ref = ds.recuperer_images_par_mode(image_paths, reference_zernike)
+        try:
+            image_ref_path = ds.trouver_reference(images_mode_ref, reference_zernike)
+        except FileNotFoundError as e:
+            print(f"Exprience ignorée: {e}")
+            return []
+        
+        ref_stack = im.load_tif(image_ref_path)
+        ref_image = im.make_2d_image(ref_stack, mode=projection_mode, plane_index=plane_index)
 
-    # Calcul taille image pour calcul fc_pix
-    image_size_pix = min(ref_image.shape)
-    base_fc_mm1, fc_mm1, fc_radius_px = compute_fc_values(condition, image_size_pix)
-    
-    print(f"Image référence: {image_ref_path.name}")
-    if fc_mm1 is not None:
-        print(f"fc utilisée: {fc_mm1:1f} mm-1")
-        print(f"rayon fc: {fc_radius_px:1f} pix")
-    
-    # Calcul moyenne rotationelle image de référence
-    bins_ref, profile_ref, counts_ref = fft.calc_rotational_average(
-        ref_image,
-        image_size_pix // 2,
-        apply_smoothing=fft_profile_smoothing,
-        sigma=fft_profile_sigma
-    )
+        # Calcul taille image pour calcul fc_pix
+        image_size_pix = min(ref_image.shape)
+        base_fc_mm1, fc_mm1, fc_radius_px = compute_fc_values(condition, image_size_pix)
+        
+        print(f"Image référence: {image_ref_path.name}")
+        if fc_mm1 is not None:
+            print(f"fc utilisée: {fc_mm1:1f} mm-1")
+            print(f"rayon fc: {fc_radius_px:1f} pix")
+        
+        # Calcul moyenne rotationelle image de référence
+        bins_ref, profile_ref, counts_ref = fft.calc_rotational_average(
+            ref_image,
+            image_size_pix // 2,
+            apply_smoothing=fft_profile_smoothing,
+            sigma=fft_profile_sigma
+        )
+
+        profile_ref_std = None
+
+    # Calcul moyenne profil référence
+    if reference_zernike == "Mean":
+        profiles_ref = []
+        for mode_name, mode_zernike in ds.MODES_ZERNIKE.items():
+            
+            images_mode_ref = ds.recuperer_images_par_mode(image_paths, mode_zernike)
+            try:
+                image_ref_path = ds.trouver_reference(images_mode_ref, mode_zernike)
+            except FileNotFoundError as e:
+                print(f"Experience ignorée: {e}")
+                return []
+            
+            ref_stack = im.load_tif(image_ref_path)
+            ref_image = im.make_2d_image(ref_stack, mode=projection_mode, plane_index=plane_index)
+
+            # Calcul taille image pour calcul fc_pix
+            image_size_pix = min(ref_image.shape)
+            base_fc_mm1, fc_mm1, fc_radius_px = compute_fc_values(condition, image_size_pix)
+
+            # Calcul moyenne rotationnelle
+            bins_ref, profile_ref, counts_ref = fft.calc_rotational_average(ref_image, image_size_pix // 2, apply_smoothing=fft_profile_smoothing, sigma=fft_profile_sigma)
+
+            profiles_ref.append(profile_ref)
+        
+        # Calcul profile référence moyen
+        profile_ref = np.mean(profiles_ref, axis=0)
+        profile_ref_std = np.std (profiles_ref, axis=0)
+        print("Image référence = moyenne images de référence")
+        if fc_mm1 is not None:
+                print(f"fc utilisée: {fc_mm1:1f} mm-1")
+                print(f"rayon fc: {fc_radius_px:1f} pix")
 
     results = []
     band_limits = []
+    profile_table = None
 
     # boucle sur mode de Zernike
     for mode_name, mode_zernike in ds.MODES_ZERNIKE.items():
 
         print(f"Mode: {mode_name} ({mode_zernike})")
+        
+         # Obtention image de référence
+        if reference_zernike is None:
+            
+            images_mode_ref = ds.recuperer_images_par_mode(image_paths, mode_zernike)
+            try:
+                image_ref_path = ds.trouver_reference(images_mode_ref, mode_zernike)
+            except FileNotFoundError as e:
+                print(f"Exprience ignorée: {e}")
+                return []
+            
+            ref_stack = im.load_tif(image_ref_path)
+            ref_image = im.make_2d_image(ref_stack, mode=projection_mode, plane_index=plane_index)
+
+            # Calcul taille image pour calcul fc_pix
+            image_size_pix = min(ref_image.shape)
+            base_fc_mm1, fc_mm1, fc_radius_px = compute_fc_values(condition, image_size_pix)
+            
+            print(f"Image référence: {image_ref_path.name}")
+            if fc_mm1 is not None:
+                print(f"fc utilisée: {fc_mm1:1f} mm-1")
+                print(f"rayon fc: {fc_radius_px:1f} pix")
+            
+            # Calcul moyenne rotationelle image de référence
+            bins_ref, profile_ref, counts_ref = fft.calc_rotational_average(
+                ref_image,
+                image_size_pix // 2,
+                apply_smoothing=fft_profile_smoothing,
+                sigma=fft_profile_sigma
+            )
+
+            profile_ref_std = None
 
         image_mode = ds.recuperer_images_par_mode(image_paths, mode_zernike)
 
@@ -397,17 +546,16 @@ def analyze_one_experiment(condition, aberration_level, no_exp):
 
         if fft_profile_save:
 
-            profile_csv = cf.FFT_DIR / f"{profile_base_name}.csv"
-
-            io.save_fft_profile_comparison_csv(
+            profile_table = add_zernike_profile_to_table(
+                profile_table=profile_table,
                 bins=bins,
-                ref_profile=ref_profile_comp,
-                aberr_profile=aber_profile_comp,
-                diff_smooth=diff_smooth,
-                diff_norm=diff_smooth/np.max(diff_smooth),
-                output_path=profile_csv,
                 image_size_pix=image_size_pix,
-                pixel_size_um=cf.ANALYSIS["pixel_size_um"],
+                mode_zernike=mode_zernike,
+                ref_profile=ref_profile_comp,
+                ref_profile_std=profile_ref_std,
+                aberr_profile=aber_profile_comp,
+                diff=diff,
+                diff_smooth=diff_smooth,
                 r_min=r_min,
                 r_max=r_max,
             )
@@ -516,6 +664,30 @@ def analyze_one_experiment(condition, aberration_level, no_exp):
 
     else:
         print("  Aucune bande détectée pour cette expérience.")
+
+    
+    # -----------------------------------------
+    # Sauvegarde globale des profils FFT
+    # pour tous les modes de Zernike
+    # -----------------------------------------
+
+    if fft_profile_save and profile_table is not None:
+
+        profile_filename = build_all_modes_profile_filename(
+            condition=condition,
+            aberration_level=aberration_level,
+            no_exp=no_exp,
+            projection_mode=projection_mode,
+            alpha=alpha,
+            k=k,
+        )
+
+        profile_output_csv = cf.FFT_DIR / profile_filename
+
+        io.save_fft_profiles_all_modes_csv(
+            profile_table,
+            profile_output_csv,
+        )
 
     return results
 
