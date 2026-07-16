@@ -63,6 +63,63 @@ def coefficient_a(valeurs, x_alpha, plot=True):
     return a, x_max
 
 
+def coefficient_a_details(valeurs, x_alpha, n_fit_points=200, plot=False):
+    """
+    Calcule le fit quadratique y = a*x^2 + b*x + c
+    et retourne tous les éléments utiles pour Prism.
+
+    valeurs : valeurs normalisées pour un jeu donné
+    x_alpha : valeurs d'aberration
+    """
+
+    x = np.array(x_alpha, dtype=float)
+    y = np.array(valeurs, dtype=float)
+
+    a, b, c = np.polyfit(x, y, 2)
+
+    # Calcul du R²
+    y_pred = a * x**2 + b * x + c
+    ss_res = np.sum((y - y_pred) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
+
+    # Position du sommet de la parabole (maximum si a < 0)
+    x_max = -b / (2 * a) if a != 0 else np.nan
+
+    x_fit = np.linspace(x.min(), x.max(), n_fit_points)
+    y_fit = a * x_fit**2 + b * x_fit + c
+
+    if plot:
+        y_max = a * x_max**2 + b * x_max + c
+
+        plt.figure(figsize=(7, 5))
+        plt.scatter(x, y, color='tab:blue', label='Données normalisées', zorder=3)
+        plt.plot(x_fit, y_fit, color='tab:red',
+                 label=f'Fit quadratique (R² = {r2:.4f})')
+        plt.scatter([x_max], [y_max], color='tab:green', zorder=4, s=60, label='Maximum')
+        plt.annotate(f'x = {x_max:.4f}',
+                     xy=(x_max, y_max),
+                     xytext=(10, 10), textcoords='offset points',
+                     color='tab:green', fontsize=9)
+        plt.xlabel('x')
+        plt.ylabel('y (normalisé)')
+        plt.title('Fit quadratique y = a·x² + b·x + c')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.show()
+
+    return {
+        "a": a,
+        "b": b,
+        "c": c,
+        "r2": r2,
+        "x_max": x_max,
+        "x_points": x,
+        "y_points": y,
+        "x_fit": x_fit,
+        "y_fit": y_fit,
+    }
+
 
 def coefficient_N(courbes, x_alpha, methode="std", mode="fit", plot=True):
     """
@@ -126,6 +183,98 @@ def coefficient_N(courbes, x_alpha, methode="std", mode="fit", plot=True):
     return N
 
 
+def coefficient_N_details(
+    courbes,
+    x_alpha,
+    methode="std",
+    mode="fit",
+    n_fit_points=500,
+    plot=False,
+):
+    """
+    Calcule N, mais retourne aussi les courbes utiles pour Prism :
+    - moyenne
+    - ymin / ymax
+    - fit ymin / fit ymax si mode='fit'
+    """
+
+    x = np.array(x_alpha, dtype=float)
+
+    moy = np.array([np.mean(c) for c in courbes])
+
+    if methode == "std":
+        spread = np.array([np.std(c) for c in courbes])
+        ymin = moy - spread
+        ymax = moy + spread
+
+    elif methode == "minmax":
+        ymin = np.array([np.min(c) for c in courbes])
+        ymax = np.array([np.max(c) for c in courbes])
+
+    else:
+        raise ValueError("methode doit être 'std' ou 'minmax'")
+
+    diff_direct = np.abs(ymax - ymin)
+    N_direct = np.trapezoid(diff_direct, x)
+
+    if mode == "direct":
+        N = N_direct
+        x_fit = x
+        y_min_fit = ymin
+        y_max_fit = ymax
+        diff_fit = diff_direct
+        coeffs_min = [np.nan, np.nan, np.nan]
+        coeffs_max = [np.nan, np.nan, np.nan]
+
+    elif mode == "fit":
+        coeffs_min = np.polyfit(x, ymin, 2)
+        coeffs_max = np.polyfit(x, ymax, 2)
+        
+        x_fit = np.linspace(x.min(), x.max(), n_fit_points)
+        y_min_fit = np.polyval(coeffs_min, x_fit)
+        y_max_fit = np.polyval(coeffs_max, x_fit)
+
+        diff_fit = np.abs(y_max_fit - y_min_fit)
+        N = np.trapezoid(diff_fit, x_fit)
+
+    else:
+        raise ValueError("mode doit être 'direct' ou 'fit'")
+    
+    if plot:
+        plt.figure(figsize=(7, 5))
+        plt.plot(x, moy, color='tab:blue', marker='o', label='y_moy')
+        plt.plot(x, ymin, color='tab:green', marker='o', linestyle='--', label='y_min')
+        plt.plot(x, ymax, color='tab:orange', marker='o', linestyle='--', label='y_max')
+        plt.fill_between(x, ymin, ymax, color='gray', alpha=0.2)
+
+        if mode == "fit":
+            plt.plot(x_fit, y_min_fit, color='tab:green', alpha=0.5)
+            plt.plot(x_fit, y_max_fit, color='tab:orange', alpha=0.5)
+
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.title(f'Enveloppe ({methode}, {mode}) — N = {N:.4f}')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.show()
+
+    return {
+        "N": N,
+        "N_direct": N_direct,
+        "x_points": x,
+        "y_mean": moy,
+        "y_min": ymin,
+        "y_max": ymax,
+        "diff_direct": diff_direct,
+        "x_fit": x_fit,
+        "y_min_fit": y_min_fit,
+        "y_max_fit": y_max_fit,
+        "diff_fit": diff_fit,
+        "coeffs_min": coeffs_min,
+        "coeffs_max": coeffs_max,
+    }
+
+
 # Exportation CSV
 
 
@@ -164,7 +313,7 @@ def append_analysis_result(filename, values):
 # Récupérer les fichiers 
 
 
-def construire_chemin_dossier(base_dir, profondeur, quantite, jeu, metrique="mean_ROI"):
+def construire_chemin_dossier(base_dir, profondeur, aberration_level, jeu, metrique="mean_ROI"):
     """
     Construit le chemin vers le dossier contenant les images.
 
@@ -185,7 +334,7 @@ def construire_chemin_dossier(base_dir, profondeur, quantite, jeu, metrique="mea
     construire_chemin_dossier(base, "Coverslip", "No_aber", 1, "Gallery")
     -> base/Coverslip/No_aber/1/Gallery
     """
-    chemin = Path(base_dir) / profondeur / quantite / str(jeu)
+    chemin = Path(base_dir) / profondeur / aberration_level / str(jeu)
 
     if metrique in ("Dapi", "Gallery"):
         chemin = chemin / metrique
@@ -193,7 +342,7 @@ def construire_chemin_dossier(base_dir, profondeur, quantite, jeu, metrique="mea
     return chemin
 
 
-def obtenir_images_mode(base_dir, profondeur, quantite, jeu, mode_zernike, metrique="mean_ROI"):
+def obtenir_images_mode(base_dir, profondeur, aberration_level, jeu, mode_zernike, metrique="mean_ROI"):
     """
     Récupère les 9 images (référence + 8 niveaux d'aberration)
     d'un mode Zernike donné.
@@ -201,7 +350,7 @@ def obtenir_images_mode(base_dir, profondeur, quantite, jeu, mode_zernike, metri
     dossier = construire_chemin_dossier(
         base_dir,
         profondeur,
-        quantite,
+        aberration_level,
         jeu,
         metrique
     )
@@ -222,7 +371,7 @@ def obtenir_images_mode(base_dir, profondeur, quantite, jeu, mode_zernike, metri
 def obtenir_matrice_metrique(
     base_dir,
     profondeur,
-    quantite,
+    aberration_level,
     mode_zernike,
     metrique,
     jeux=(1, 2, 3, 4, 5),
@@ -255,7 +404,7 @@ def obtenir_matrice_metrique(
             x_jeu, images_mode = obtenir_images_mode(
                 base_dir,
                 profondeur,
-                quantite,
+                aberration_level,
                 jeu,
                 mode_zernike,
                 metrique,

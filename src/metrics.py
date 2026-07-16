@@ -12,10 +12,11 @@ from config import ANALYSIS
 from src import fourier_tools as ft
 
 # Attention pour mean_ROI il faut avoir Napalm_tracer
+"""
 from palm_tracer import PALMTracer
 from palm_tracer.Tools import FileIO
 from palm_tracer.Processing import Palm
-
+"""
 # -----------------------------------------
 # Paramètres pour mean_ROI
 # ----------------------------------------- 

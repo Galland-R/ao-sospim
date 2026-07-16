@@ -47,12 +47,15 @@ ANALYSIS = {
     "fft_profile_plot_show": False,      # Affiche figure de comparaison
 }
 
-
+# Valeurs bande passante calculées pour chaque condition et métrique
+"""
+# Valeurs étudiants (Rémi & Laetitia)
 BANDPASS_RADII_PX = {
     "Coverslip": {
         "MIP": (22, 67), "SUM": (20, 61), "Frame": (16, 52), "Dapi": (11, 42),
         "Gallery": (16, 52), "STD": (23, 71), "MIP25": (21, 64), "avg_psf": (31, 73),
     },
+
     "Profondeur": {
         "MIP": (16, 66), "SUM": (13, 57), "Frame": (7, 51), "Dapi": (6, 43),
         "Gallery": (11, 61), "STD": (16, 70),
@@ -61,6 +64,17 @@ BANDPASS_RADII_PX = {
         "std_10frames": (16, 70), "std_30frames": (16, 70),
         "std_50frames": (16, 70), "std_100frames": (16, 70),
     },
+}
+"""
+# Valeurs calculées à partir ref = "Mean" et k = 0.5
+BANDPASS_RADII_PX = {
+    "Coverslip":{
+        "MIP": (19, 72), "SUM": (18, 66), "STD": (20, 76), "Frame": (12, 62),
+    },
+
+    "Profondeur": {
+        "MIP": (17, 70), "SUM": (12, 57), "STD": (18, 73), "Frame": (8, 53),
+    }
 }
 
 
@@ -84,10 +98,11 @@ DATA_DIR = DATA_ROOT_DIR / ANALYSIS["condition"] / ANALYSIS["aberration_level"] 
 RESULTS_DIR = Path(                                 
     "/Users/remi_galland/Library/CloudStorage/Dropbox-Sibarita_QIC/Rémi Galland/Work_RG/Publications/2026 - AO-soSPIM/Data/Figure01/Results/"
 )
-CSV_DIR = RESULTS_DIR / "csv"
+BAND_DIR = RESULTS_DIR / "band_detection"
 FFT_DIR = RESULTS_DIR / "fft_profiles"
 IMAGE_DIR = RESULTS_DIR / "images"
-for folder in [RESULTS_DIR, CSV_DIR, FFT_DIR, IMAGE_DIR]:
+SENSITIVITY_DIR = RESULTS_DIR / "sensitivity"
+for folder in [RESULTS_DIR, BAND_DIR, FFT_DIR, IMAGE_DIR, SENSITIVITY_DIR]:
     folder.mkdir(parents=True, exist_ok=True)
 
 
@@ -193,13 +208,14 @@ def get_analysis_fc_radius_px(image_size_px=256, fc_fraction=None):
 
     return freq_mm1_to_pix(fc_mm1, image_size_px=image_size_px, pixel_size_um=ANALYSIS["pixel_size_um"])
 
-def obtenir_parametres_metrique(profondeur, metrique):
+def obtenir_parametres_metrique(condition, metrique):
     """
     Détermine NA, Lambda, r_min_px, r_max_px selon la profondeur et le type d'image.
     """
-    NA = NA_BY_CONDITION[profondeur]
+    NA = NA_BY_CONDITION[condition]
     Lambda = 0.465 if metrique == "Dapi" else 0.589
 
-    r_min_px, r_max_px = BANDPASS_RADII_PX[profondeur][metrique]
+    r_min_px, r_max_px = BANDPASS_RADII_PX[condition][metrique]
+    print(f"r_min: {r_min_px}, r_max: {r_max_px}")
 
     return NA, Lambda, r_min_px, r_max_px

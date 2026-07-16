@@ -5,6 +5,7 @@ import numpy as np
 root = Path(__file__).resolve().parent.parent         
 sys.path.append(str(root)) 
 
+import config as cf
 from src import sensibility as sb
 from src import metrics as mt
 from src import dataset_tools as dt
@@ -14,9 +15,10 @@ from src import dataset_tools as dt
 # -----------------------------------------
 
 # Fichiers à considérer 
-base_dir = r"M:\everyone\Laetitia\AO\BANDPASS\CARAC\CARAC_AO_THESE"
+# base_dir = r"M:\everyone\Laetitia\AO\BANDPASS\CARAC\CARAC_AO_THESE"
+base_dir = cf.DATA_ROOT_DIR
 profondeur = "Coverslip"
-quantite = "No_aber"
+aberration_level = "No_aber"
 mode_zernike = "Zer4"
 jeux = (1, 2, 3, 4, 5, 6, 7)
 metrique = "MIP"
@@ -35,7 +37,7 @@ ALPHAMAX = 0.26
 # -----------------------------------------
 
 # 1. Aller chercher les images + calculer la métrique + construire la matrice
-x, matrice, jeux_utils = sb.obtenir_matrice_metrique(base_dir, profondeur, quantite, mode_zernike, metrique, jeux)
+x, matrice, jeux_utils = sb.obtenir_matrice_metrique(base_dir, profondeur, aberration_level, mode_zernike, metrique, jeux)
 x = np.array(x)
 x = x * ALPHAMAX / 4
 # 2. Normaliser par ligne (chaque jeu par son propre max)
