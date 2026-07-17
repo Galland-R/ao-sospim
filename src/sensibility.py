@@ -18,12 +18,41 @@ import csv
 
 # Sensibilité 
 
+def select_fit_subset(x, y, skip_first_n=0, skip_last_n=0):
+    """
+    Sélectionne les points utilisés pour le fit.
+
+    Les données complètes restent disponibles ailleurs.
+    Cette fonction ne sert qu'à définir le sous-ensemble utilisé par np.polyfit.
+    """
+
+    x = np.array(x, dtype=float)
+    y = np.array(y, dtype=float)
+
+    start = skip_first_n
+    stop = len(x) - skip_last_n if skip_last_n > 0 else len(x)
+
+    x_fit_data = x[start:stop]
+    y_fit_data = y[start:stop]
+
+    if len(x_fit_data) < 3:
+        raise ValueError(
+            f"Pas assez de points pour un fit quadratique : "
+            f"{len(x_fit_data)} point(s) restant(s). Il en faut au moins 3."
+        )
+
+    fit_used_mask = np.zeros(len(x), dtype=bool)
+    fit_used_mask[start:stop] = True
+
+    return x_fit_data, y_fit_data, fit_used_mask
 
 def coefficient_a(valeurs, x_alpha, plot=True):
     """
     Les valeurs sont déjà normalisées.
     Fait un fit quadratique y = a*x^2 + b*x + c sur les valeurs (déjà normalisées)
     et retourne le coefficient a ainsi que la position x du maximum de la parabole.
+
+    ATTENTION: Ne prend pas en compte fit sur un sous-ensemble de point: doit implémenterfit_skip_first/last_n
     """
     y = np.array(valeurs)
     x = x_alpha
@@ -63,7 +92,7 @@ def coefficient_a(valeurs, x_alpha, plot=True):
     return a, x_max
 
 
-def coefficient_a_details(valeurs, x_alpha, n_fit_points=200, plot=False):
+def coefficient_a_details(valeurs, x_alpha, n_fit_points=200, plot=False, fit_skip_first_n=0, fit_skip_last_n=0):
     """
     Calcule le fit quadratique y = a*x^2 + b*x + c
     et retourne tous les éléments utiles pour Prism.
@@ -75,18 +104,25 @@ def coefficient_a_details(valeurs, x_alpha, n_fit_points=200, plot=False):
     x = np.array(x_alpha, dtype=float)
     y = np.array(valeurs, dtype=float)
 
-    a, b, c = np.polyfit(x, y, 2)
+    x_fit_data, y_fit_data, fit_used_mask = select_fit_subset(x, y, skip_first_n=fit_skip_first_n, skip_last_n=fit_skip_last_n)
+    
+    # Fit uniquement sur le sous-ensemble choisi
+    a, b, c = np.polyfit(x_fit_data, y_fit_data, 2)
 
-    # Calcul du R²
+    # Valeurs prédites aux points expériementaux cmoplets
     y_pred = a * x**2 + b * x + c
-    ss_res = np.sum((y - y_pred) ** 2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)
+
+    # Calcul du R² seulement sur points utilisés pour fit
+    y_pred_fit_data = a * x_fit_data**2 + b * x_fit_data + c
+    ss_res = np.sum((y_fit_data - y_pred_fit_data) ** 2)
+    ss_tot = np.sum((y_fit_data - np.mean(y_fit_data)) ** 2)
     r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
 
     # Position du sommet de la parabole (maximum si a < 0)
     x_max = -b / (2 * a) if a != 0 else np.nan
 
-    x_fit = np.linspace(x.min(), x.max(), n_fit_points)
+    # Courbe lisse du fit, limitée au domaine réellement utilisé pour le fit
+    x_fit = np.linspace(x_fit_data.min(), x_fit_data.max(), n_fit_points)
     y_fit = a * x_fit**2 + b * x_fit + c
 
     if plot:
@@ -107,15 +143,25 @@ def coefficient_a_details(valeurs, x_alpha, n_fit_points=200, plot=False):
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.show()
-
+    
     return {
         "a": a,
         "b": b,
         "c": c,
         "r2": r2,
         "x_max": x_max,
+
+        # Tous les points
         "x_points": x,
         "y_points": y,
+        "y_pred_points": y_pred,
+
+        # Points réellement utilisés pour le fit
+        "x_fit_data": x_fit_data,
+        "y_fit_data": y_fit_data,
+        "fit_used_mask": fit_used_mask,
+
+        # Courbe lisse pour Prism
         "x_fit": x_fit,
         "y_fit": y_fit,
     }
@@ -132,6 +178,8 @@ def coefficient_N(courbes, x_alpha, methode="std", mode="fit", plot=True):
     methode : "std" (moyenne ± écart-type) ou "minmax" (vrai min/max observé)
     mode : "direct" (aire sur les points bruts) ou "fit" (aire après fit quadratique)
     plot : si True, affiche y_moy, ymin et ymax
+
+    ATTENTION: Ne prend pas en compte fit sur un sous-ensemble de point: doit implémenterfit_skip_first/last_n
     """
     moy = np.array([np.mean(c) for c in courbes])
 
@@ -190,12 +238,15 @@ def coefficient_N_details(
     mode="fit",
     n_fit_points=500,
     plot=False,
+    fit_skip_first_n=0,
+    fit_skip_last_n=0
 ):
     """
     Calcule N, mais retourne aussi les courbes utiles pour Prism :
     - moyenne
     - ymin / ymax
     - fit ymin / fit ymax si mode='fit'
+    Si mode == "fit", les fits de y_min et y_max peuvent etre calculé sur un sous-ensemble de points
     """
 
     x = np.array(x_alpha, dtype=float)
@@ -214,6 +265,7 @@ def coefficient_N_details(
     else:
         raise ValueError("methode doit être 'std' ou 'minmax'")
 
+    # Aire directe sur tous les points
     diff_direct = np.abs(ymax - ymin)
     N_direct = np.trapezoid(diff_direct, x)
 
@@ -225,12 +277,29 @@ def coefficient_N_details(
         diff_fit = diff_direct
         coeffs_min = [np.nan, np.nan, np.nan]
         coeffs_max = [np.nan, np.nan, np.nan]
+        fit_used_mask = np.ones(len(x), dtype=bool)
 
     elif mode == "fit":
-        coeffs_min = np.polyfit(x, ymin, 2)
-        coeffs_max = np.polyfit(x, ymax, 2)
-        
-        x_fit = np.linspace(x.min(), x.max(), n_fit_points)
+        x_min_fit_data, y_min_fit_data, fit_used_mask = select_fit_subset(
+            x,
+            ymin,
+            skip_first_n=fit_skip_first_n,
+            skip_last_n=fit_skip_last_n,
+        )
+
+        x_max_fit_data, y_max_fit_data, _ = select_fit_subset(
+            x,
+            ymax,
+            skip_first_n=fit_skip_first_n,
+            skip_last_n=fit_skip_last_n,
+        )
+
+        coeffs_min = np.polyfit(x_min_fit_data, y_min_fit_data, 2)
+        coeffs_max = np.polyfit(x_max_fit_data, y_max_fit_data, 2)
+
+        # Fit limités au domaine utilisé
+        x_fit = np.linspace(x_min_fit_data.min(), x_min_fit_data.max(), n_fit_points)
+
         y_min_fit = np.polyval(coeffs_min, x_fit)
         y_max_fit = np.polyval(coeffs_max, x_fit)
 
@@ -261,17 +330,22 @@ def coefficient_N_details(
     return {
         "N": N,
         "N_direct": N_direct,
+
+        # Points expérimentaux complets
         "x_points": x,
         "y_mean": moy,
         "y_min": ymin,
         "y_max": ymax,
         "diff_direct": diff_direct,
+
+        # Fit/enveloppes
         "x_fit": x_fit,
         "y_min_fit": y_min_fit,
         "y_max_fit": y_max_fit,
         "diff_fit": diff_fit,
         "coeffs_min": coeffs_min,
         "coeffs_max": coeffs_max,
+        "fit_used_mask": fit_used_mask,
     }
 
 
@@ -290,6 +364,8 @@ HEADERS = [
     "x_max_moyen",        # I
     "Conditions méthode", # J
     "Conditions mode",    # K
+    "fit_skip_first_n",
+    "fit_skip_last_n",
 ]
 
 
